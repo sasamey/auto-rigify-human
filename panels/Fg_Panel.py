@@ -93,38 +93,36 @@ class VIEW3D_PT_Rig_Orienting(bpy.types.Panel):
 
         layout = self.layout
         bone = context.active_bone
-        if bone:
-            scene = context.scene
-            layout.use_property_split = True
-            layout.use_property_decorate = False
-            col = layout.column(align=True)
-            row = col.row(align=True)
-            row.operator("fg.generate_rig", text=f"Generate RIG", icon="CONSTRAINT_BONE")
-            row.operator("fg.autoparent", text="auto parent", icon="RIGHTARROW_THIN")
-            layout.separator()
+        bname = bone.name if bone else "?"
 
-            row = layout.row()
-            row.alignment = "CENTER"
-            row.label(text="::: Auto ik ::: ")
-            row = layout.row(align=True)
-            row.operator("fg.generate_ik", text="Generator ik for " + bone.name, icon="CON_KINEMATIC")
-            row.scale_x = 0.3
-            row.prop(scene, "chain_count")
-            layout.separator()
+        # if bone:
+        scene = context.scene
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        col = layout.column(align=True)
+        row = col.row(align=True)
+        row.operator("fg.generate_rig", text=f"Generate RIG", icon="CONSTRAINT_BONE")
+        row.operator("fg.autoparent", text="auto parent", icon="RIGHTARROW_THIN")
+        layout.separator()
 
-            row = layout.row()
-            row.alignment = "CENTER"
-            row.label(text=" ::: Snap ::: ")
-            row = layout.row(align=True)
-            row.operator("fg.ikorfksnap", text="IK or FK", icon="SNAP_ON")
-            # row.scale_x = 0.4
-            # if context.active_pose_bone.constraints:
-            #     for con in context.active_pose_bone.constraints:
-            #         if con.type == "IK":
-            #             row.prop(con, "influence", text="", icon_only=True)
-            #             break
+        row = layout.row()
+        row.alignment = "CENTER"
+        row.label(text="::: Auto ik ::: ")
+        row = layout.row(align=True)
+        row.operator("fg.generate_ik", text="Generator ik for " + bname, icon="CON_KINEMATIC")
+        col.enabled = True 
+        col = row.column(align=True)
+        col.scale_x = 0.5
+        col.prop(scene, "chain_count")
+        col.enabled = False
+        layout.separator()
 
-            row.separator()
+        row = layout.row()
+        row.alignment = "CENTER"
+        row.label(text=" ::: Snap ::: ")
+        row = layout.row(align=True)
+        row.operator("fg.ikorfksnap", text="IK or FK", icon="SNAP_ON")
+        layout.separator()
 
 
 class VIEW3D_PT_Smart_Modes(bpy.types.Panel):

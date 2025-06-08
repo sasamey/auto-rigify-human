@@ -13,10 +13,10 @@ class Weightpaintmode(bpy.types.Operator):
         bpy.ops.object.select_all(action="DESELECT")
         human = context.scene.my_object
         armatur = context.scene.my_armature
-        human.select_set(True)
         armatur.select_set(True)
+        human.select_set(True)
         bpy.context.view_layer.objects.active = human
-        bpy.ops.paint.weight_paint_toggle()
+        bpy.ops.object.mode_set(mode="WEIGHT_PAINT")
 
         return {"FINISHED"}
 
