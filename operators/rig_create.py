@@ -138,18 +138,18 @@ class GenerateRig(bpy.types.Operator):
         print("\n\n\n*******************************     generating rig        *****************************")
         # --- Initial Checks ---
         if not context.active_object:
-            bpy.context.view_layer.objects.active = armatur = context.scene.my_object
+            bpy.context.view_layer.objects.active = context.scene.my_object
         initial_mode = context.object.mode
         bpy.ops.object.mode_set(mode="OBJECT")
         bpy.ops.object.select_all(action="DESELECT")
-        print("                     initial_mode ==*",initial_mode + " mode for *"+context.active_object.name)
+        print("                     initial_mode ==*", initial_mode + " mode for *" + context.object.name)
 
         if not hasattr(context.scene, "my_object") or context.scene.my_object is None:
             self.report({"ERROR"}, "No object set in the scene")
             return {"CANCELLED"}
         if not hasattr(context.scene, "my_armature") or not context.scene.my_armature:
             bpy.ops.object.armature_basic_human_metarig_add()
-        context.scene.my_armature = context.active_object
+            context.scene.my_armature = context.active_object
         human = context.scene.my_object
         armatur = context.scene.my_armature
 
@@ -157,10 +157,17 @@ class GenerateRig(bpy.types.Operator):
         human.select_set(True)
 
         bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
-        if human.parent:
-            human.parent.select_set(True)
-            bpy.context.view_layer.objects.active = human
-            bpy.ops.object.parent_clear(type="CLEAR")
+          
+        for mod in human.modifiers:
+        # If the modifier is an armature, remove it
+            if mod.type == 'ARMATURE':
+                human.modifiers.remove(mod)
+                print(f"Removed armature modifier from object: {human.name}")
+
+    # # Check if the object has a parent and clear it
+    #     if human.parent:
+    #         human.parent = None
+            
 
         # --- Calculate Human Dimensions and Key Points ---
         tall = human.dimensions[2]
@@ -177,8 +184,8 @@ class GenerateRig(bpy.types.Operator):
         # Apply armature transforms, then switch to edit mode \\\\\\\\\\\\\\\\
 
         armatur.select_set(True)
-        bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
         bpy.context.view_layer.objects.active = armatur
+        bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
         arm = armatur.data
         # Create missing collections
         assign_custom_rigify_collections(armatur)
@@ -505,12 +512,21 @@ class GenerateRig(bpy.types.Operator):
             spine_bones[3].head.z = arm_bones[0].head.z - tallunit * 2
 
         # Wrist/Hand head finding
-        handhead_verts_co = [
-            v
-            for v in leftside_verts
-            if abs(v.co.x - arm_bones[3].tail.x + tallunit * 14 * width / tall) < tallunit * 3
-            and abs(v.co.z - arm_bones[3].tail.z - tallunit * 0.5 * tall / width) < tallunit * 2
-        ]
+        if a_pose:
+            handhead_verts_co = [
+                v
+                for v in leftside_verts
+                if abs(v.co.x - arm_bones[3].tail.x + tallunit * 12 * width / tall) < tallunit * 3
+                and abs(v.co.z - arm_bones[3].tail.z - tallunit * 0.5 * tall / width) < tallunit * 2
+            ]
+        else:
+
+            handhead_verts_co = [
+                v
+                for v in leftside_verts
+                if abs(v.co.x - arm_bones[3].tail.x + tallunit * 14 * width / tall) < tallunit * 3
+                and abs(v.co.z - arm_bones[3].tail.z - tallunit * 0.5 * tall / width) < tallunit * 2
+            ]
         if abs(maxhandx_vert_co.x - maxlower_co.x) < tallunit * 3:
             handhead_verts_co = [v for v in handhead_verts_co if v.co.x > maxlower_co.x - tallunit * 3]
         for v in handhead_verts_co:
@@ -553,6 +569,9 @@ class GenerateRig(bpy.types.Operator):
             elbowz_co.x = elbowxmaax_co.x * 0.5 + elbowxmin_co.x * 0.5
             elbowz_co.y += tallunit * 0.5
             arm_bones[1].tail = elbowz_co  # upper_arm.L tail
+            elbowy = arm_bones[2].tail.y * 0.5 + arm_bones[0].tail.y * 0.5 + tallunit * 0.15
+            arm_bones[1].tail.y=max(elbowy,elbowz_co.y)
+
 
         # Recalculate arm rolls
         for arm_bone in arm_bones:
