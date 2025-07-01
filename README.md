@@ -1,6 +1,7 @@
 # auto-rigify-oriention
 **beta**
 *Don't waste your time creating bone alignment, ik bones. Choose your human object, create aligned rig
+
 Automated human rigging system for Blender (using Rigify or only one bone) with customizable proportions and IK/FK switching.
 
 ## Features ✨
