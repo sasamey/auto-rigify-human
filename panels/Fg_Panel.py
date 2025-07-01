@@ -1,237 +1,208 @@
 import bpy
 
 
-def visible_mesh_poll(self, object):
-    return object.type == "MESH" and object.visible_get()
+# 🔁 Reusable poll functions
+def visible_mesh_poll(self, obj):
+    return obj.type == "MESH" and obj.visible_get()
 
 
-def visible_armature_poll(self, object):
-    return object.type == "ARMATURE" and object.visible_get()
+def visible_armature_poll(self, obj):
+    return obj.type == "ARMATURE" and obj.visible_get()
 
 
-# 🧠 Enum generator callback
+# 🧠 Bone enum callback
 def get_bone_items(self, context):
-    # pose mode
     obj = context.object
     if not obj or obj.type != "ARMATURE":
         return [("", "Not an armature", "")]
-
     objbone = context.active_pose_bone
-    bones = obj.pose.bones
-
-    if not objbone or not bones:
+    if not objbone or not obj.pose.bones:
         return [("", "No bone selected", "")]
-
-    objbones = []
-    for bone in bones:
-        head = bone.bone.head_local
-        tail = objbone.bone.tail_local
-        if abs(head.x - tail.x) < 0.01 and abs(head.y - tail.y) < 0.01 and abs(head.z - tail.z) < 0.01:
-            objbones.append(bone)
-
-    if not objbones:
-        return [("", "No child bone found", "")]
-    return [(bone.name, bone.name, "") for bone in objbones]
+    matches = [bone for bone in obj.pose.bones if (bone.bone.head_local - objbone.bone.tail_local).length < 0.01]
+    return [(b.name, b.name, "") for b in matches] or [("", "No child bone found", "")]
 
 
-class VIEW3D_PT_Selecting(bpy.types.Panel):
-    "1"
-
-    bl_label = "Select object & armature first"
-    bl_idname = "VIEW3D_PT_Selecting"
+# 🔧 Base panel class
+class FG_BasePanel:
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Fg"
+
+
+# Panels
+class VIEW3D_PT_Selecting(FG_BasePanel, bpy.types.Panel):
+    bl_label = "Select object & armature first"
+    bl_idname = "VIEW3D_PT_Selecting"
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
         layout = self.layout
         scene = context.scene
-        # visible_meshes = [obj for obj in context.scene.objects if obj.type == "MESH" and obj.visible_get()]
-        # # if visible_meshes:
-        # #     scene.my_object = visible_meshes[0]
-        ob = scene.my_object
-        # if ob is None:
-        #     ob = visible_meshes[0] if visible_meshes else None
-        #     # scene.my_object = ob
-        # print("ob", ob,visible_meshes[0] if visible_meshes else None)
-        armature = scene.my_armature
+        ob, armature = scene.my_object, scene.my_armature
+
         if ob and armature:
-            self.bl_label = armature.name.split("_")[0].title() + " vs " + ob.name.split("_")[0].title()
+            self.bl_label = f"::: {armature.name.split('_')[0].title()} vs {ob.name.split('_')[0].title()} :::"
 
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-        row = layout.row()
-        row.alignment = "CENTER"
-        row.operator("script.reload", icon="FILE_REFRESH")
-        row.separator()
-
-        row = layout.row()
-        row.alignment = "LEFT"
-        row.label(text="Object:")
-        row.prop(scene, "my_object", text="")
-
-        row = layout.row()
-        row.alignment = "LEFT"
-        row.label(text="Armature:")
-        row.prop(scene, "my_armature", text="")
-        row.separator()
+        layout.row().operator("script.reload", icon="FILE_REFRESH")
+        layout.row(align=True).prop(scene, "my_object")
+        layout.row(align=True).prop(scene, "my_armature")
         layout.separator()
 
 
-class VIEW3D_PT_Rig_Orienting(bpy.types.Panel):
-    "2"
-
-    bl_label = " ...  Auto Rig & Parent   ..."
+class VIEW3D_PT_Rig_Orienting(FG_BasePanel, bpy.types.Panel):
+    bl_label = "::: Auto Rig & Parent :::"
     bl_idname = "VIEW3D_PT_Rig_Orienting"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_category = "Fg"
-    # bl_options = {"HIDE_HEADER"}
 
     def draw(self, context):
-
         layout = self.layout
+        armature = context.scene.my_armature
         bone = context.active_bone
-        bname = bone.name if bone else "?"
 
-        # if bone:
-        scene = context.scene
-        layout.use_property_split = True
         layout.use_property_decorate = False
-        col = layout.column(align=True)
-        row = col.row(align=True)
-        row.operator("fg.generate_rig", text=f"Generate RIG", icon="CONSTRAINT_BONE")
-        row.operator("fg.autoparent", text="auto parent", icon="RIGHTARROW_THIN")
-        layout.separator()
-
-        row = layout.row()
-        row.alignment = "CENTER"
-        row.label(text="::: Auto ik ::: ")
         row = layout.row(align=True)
-        row.operator("fg.generate_ik", text="Generator ik for " + bname, icon="CON_KINEMATIC")
-        col.enabled = True 
-        col = row.column(align=True)
-        col.scale_x = 0.5
-        col.prop(scene, "chain_count")
-        col.enabled = False
-        layout.separator()
-
-        row = layout.row()
-        row.alignment = "CENTER"
-        row.label(text=" ::: Snap ::: ")
-        row = layout.row(align=True)
-        row.operator("fg.ikorfksnap", text="IK or FK", icon="SNAP_ON")
+        row.operator("fg.generate_rig", text="Generate RIG", icon="CONSTRAINT_BONE")
+        row.scale_x = 0.25
+        row.prop(armature.data, "use_mirror_x", text="X", icon="MOD_MIRROR")
+        layout.row(align=True).operator("fg.autoparent", text="Auto Parent", icon="RIGHTARROW_THIN")
         layout.separator()
 
 
-class VIEW3D_PT_Smart_Modes(bpy.types.Panel):
-    "3"
-
-    bl_label = "Modes"
-    bl_idname = "VIEW3D_PT_Smart_Modes"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_category = "Fg"
-
-    def draw(self, context):
-        layout = self.layout
-        # layout.use_property_split = True
-        # layout.use_property_decorate = False
-
-        self.bl_label = "MODE:   ***   " + context.mode.title() + "   ***  "
-        obj=context.selected_editable_objects
-        
-        row = layout.row(align=True)
-        if context.mode != "OBJECT":
-                row.operator("object.mode_set", text="Object Mode", icon="OBJECT_DATA").mode = "OBJECT"
-        if context.mode != "EDIT_ARMATURE" and context.mode != "EDIT_MESH":
-            row.operator("object.mode_set", text="Edit Mode", icon="EDITMODE_HLT").mode = "EDIT"
-
-        # if obj:     
-        if context.mode != "POSE":
-            row.operator("fg.posemode", text="pose mode", icon="POSE_HLT")
-        if context.mode != "PAINT_WEIGHT":
-            row.operator("fg.wpaintmode", text="weight paint", icon="BRUSH_DATA")
-    # row.separator()
-        layout.separator()
-
-
-class VIEW3D_PT_Twist_Fix(bpy.types.Panel):
-    "4"
-
-    bl_label = "Twist bones"
-    bl_idname = "VIEW3D_PT_Twist_Fix"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_category = "Fg"
-    # bl_options = {"HIDE_HEADER"}
-    # bl_options = {"DEFAULT_CLOSED"}
+class VIEW3D_PT_IK_Fix(FG_BasePanel, bpy.types.Panel):
+    bl_label = "::: Generate IK and Pole Bones :::"
+    bl_idname = "VIEW3D_PT_IK_Fix"
 
     def draw(self, context):
         layout = self.layout
         bone = context.active_bone
+        armature = context.scene.my_armature
+
         if bone:
-            scene = context.scene
+            row = layout.row(align=True)
+            row.operator("fg.generate_ik", text=f"IK for {bone.name}", icon="CON_KINEMATIC")
+            row.scale_x = 0.25
+            row.prop(armature.data, "use_mirror_x", text="X", icon="MOD_MIRROR")
+            layout.separator()
 
-            row = layout.row()
-            # row.alignment = "CENTER"
 
-            row.operator("fg.down_twist_armleg", text="twist down")
+class VIEW3D_PT_Twist_Fix(FG_BasePanel, bpy.types.Panel):
+    bl_label = "::: Generate Twist Bones :::"
+    bl_idname = "VIEW3D_PT_Twist_Fix"
+    bl_parent_id = "VIEW3D_PT_IK_Fix"
+
+    def draw(self, context):
+        layout = self.layout
+        bone = context.active_bone
+        scene = context.scene
+
+        if bone:
+            row = layout.row(align=True)
+            row.operator("fg.down_twist_armleg", text="Hand Fix", icon="VIEW_PAN")
             row.prop(scene, "bone_enum", text="")
-            row.label(text="", icon="VIEW_PAN")
+            row.scale_x = 0.5
 
             row = layout.row()
-            row.operator("fg.up_twist_armleg", text="twist up")
-            row.prop(context.active_bone, "name", text="", icon_only=True)
-            # row.label(text="", icon="GIZMO")
-
-            # layout.separator()
-            # row.label(text=context.active_bone.parent.name if context.active_bone.parent else "--> No Parent")
-
-            row = layout.row()
+            row.operator("fg.up_twist_armleg", text="Arm Fix", icon="MOD_ARMATURE")
+            row.prop(bone, "name", text="")
+            row.scale_x = 0.5
 
 
-# Custom poll function to allow only visible mesh objects
-def visible_mesh_poll(self, object):
-    return object.type == "MESH" and object.visible_get()
+class VIEW3D_PT_Smart_Modes(FG_BasePanel, bpy.types.Panel):
+    bl_label = ""
+    bl_idname = "VIEW3D_PT_Smart_Modes"
+
+    def draw(self, context):
+        layout = self.layout
+        mode = context.mode
+        self.bl_label = f"{mode.title()} mode :::" if mode else ":::...MODE...:::"
+        obj = context.object
+
+        row = layout.row(align=True)
+        if mode != "OBJECT":
+            row.operator("object.mode_set", text="Object Mode").mode = "OBJECT"
+        if mode != "EDIT_MESH":
+            row.operator("fg.humaneditmode", text="Edit Human")
+        if mode != "EDIT_ARMATURE":
+            row.operator("fg.boneditmode", text="Edit Bones")
+        # layout.separator()
+
+        row = layout.column(align=True)
+        row=row.row(align=True)
+        if mode != "POSE":
+            row.operator("fg.posemode", text="Pose Mode", icon="POSE_HLT")
+        if mode != "PAINT_WEIGHT":
+            row.operator("fg.wpaintmode", text="Weight Paint", icon="BRUSH_DATA")
 
 
-def visible_armature_poll(self, object):
-    return object.type == "ARMATURE" and object.visible_get()
+class VIEW3D_PT_bone_collection_toggle(FG_BasePanel, bpy.types.Panel):
+    bl_label = ""
+    bl_idname = "VIEW3D_PT_bone_collection_toggle"
+    bl_parent_id = "VIEW3D_PT_Smart_Modes"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw_header(self, context):
+        layout = self.layout
+        scene = context.scene
+        armature = scene.my_armature
+        if armature:
+            layout.label(text=f"{armature.name.split('_')[0].title()} Collections", icon="GROUP_BONE")
+        else:
+            layout.label(text="No Armature Selected", icon="ERROR")
+
+    def draw(self, context):
+        layout = self.layout
+        scene = context.scene
+        ob, armature = scene.my_object, scene.my_armature
+        # layout.use_property_decorate = False
+        col = layout.column()
+        sq = 0
+        for bc in armature.data.collections_all:
+            if sq % 2 == 0:
+                row = layout.row(align=True)
+            sq += 1
+            row.prop(bc, "is_visible", text=bc.name, toggle=True)
 
 
-# 🔁 Register
-classes = [VIEW3D_PT_Selecting, VIEW3D_PT_Rig_Orienting, VIEW3D_PT_Smart_Modes, VIEW3D_PT_Twist_Fix]
+class VIEW3D_PT_Snap_Fix(FG_BasePanel, bpy.types.Panel):
+    bl_label = "::: Snap :::"
+    bl_idname = "VIEW3D_PT_Snap_Fix"
+    bl_parent_id = "VIEW3D_PT_IK_Fix"
 
-props = [
-    ("bone_enum", bpy.props.EnumProperty(name="Child Bone", description="Choose hand or foot bone to fix twist", items=get_bone_items)),
-    (
-        "my_object",
-        bpy.props.PointerProperty(name="Object", type=bpy.types.Object, poll=visible_mesh_poll, description="Select an Object"),
-    ),
-    (
-        "my_armature",
-        bpy.props.PointerProperty(name="Armature", type=bpy.types.Object, poll=visible_armature_poll, description="Select an Armature"),
-    ),
-    ("chain_count", bpy.props.IntProperty(name="", default=2, min=1, max=10, description="Number of bones in the chain")),
+    def draw(self, context):
+        if context.mode == "POSE":
+            row = self.layout.row(align=True)
+            row.alignment = "CENTER"
+            row.operator("fg.ikorfksnap", text="IK or FK", icon="SNAP_ON")
+
+
+# 🔧 Register
+classes = [
+    VIEW3D_PT_Selecting,
+    VIEW3D_PT_Rig_Orienting,
+    VIEW3D_PT_IK_Fix,
+    VIEW3D_PT_Twist_Fix,
+    VIEW3D_PT_Snap_Fix,
+    VIEW3D_PT_Smart_Modes,
+    VIEW3D_PT_bone_collection_toggle,
 ]
+
+props = {
+    "bone_enum": bpy.props.EnumProperty(name="Child Bone", items=get_bone_items, description="Choose hand or foot bone"),
+    "my_object": bpy.props.PointerProperty(name="Human", type=bpy.types.Object, poll=visible_mesh_poll),
+    "my_armature": bpy.props.PointerProperty(name="Metarig", type=bpy.types.Object, poll=visible_armature_poll),
+    "chain_count": bpy.props.IntProperty(name="", default=2, min=1, max=10, description="Chain Bone Count"),
+}
 
 
 def register():
-
-    for prop in props:
-        setattr(bpy.types.Scene, prop[0], prop[1])
-
+    for k, v in props.items():
+        setattr(bpy.types.Scene, k, v)
     for cls in classes:
         bpy.utils.register_class(cls)
 
 
 def unregister():
-
-    for prop in props:
-        delattr(bpy.types.Scene, prop[0])
-
+    for k in props:
+        delattr(bpy.types.Scene, k)
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
 

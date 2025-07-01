@@ -6,7 +6,7 @@ class GenerateTwistUpper(bpy.types.Operator):
 
     bl_idname = "fg.up_twist_armleg"
     bl_label = "Genx twist arm/leg"
-    bl_description = "Choose upperarm or thigh bone\nGenerate twist bones for arm or leg"
+    bl_description = "Choose upperarm or thigh bone\nGenerate twist bones for thigh or upperarm fix\n"
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
@@ -92,7 +92,7 @@ class GenerateTwistUpper(bpy.types.Operator):
 class GenerateTwistDown(bpy.types.Operator):
     bl_idname = "fg.down_twist_armleg"
     bl_label = "Genx arm/leg"
-    bl_description = "Generate twist bones for arm or leg\nChoose forearm or shin"
+    bl_description = "Generate twist bones for hand or foot fix\nChoose forearm or shin\n"
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
