@@ -21,7 +21,11 @@ Automated human rigging system for Blender (using Rigify or only one bone) with 
 2. **Setup**:
    ```bash
    git clone https://github.com/sasamey/auto-rigify-human.git
-In Blender: Edit > Preferences > Add-ons > Install...
+   
+or download zip and
+in Blender: Edit > Preferences > Add-ons > Install...
 Select auto_rigify_human.zip
+
+
 
 
